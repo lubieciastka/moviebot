@@ -1,0 +1,22 @@
+{
+  "name": "testbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js" 
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.17.1",
+    "express"    : "latest",
+    "request"    : "latest",
+    "cheerio"    : "latest",
+    "@google-cloud/speech": "0.6.0",
+    "@google-cloud/storage": "0.7.0",
+    "node-record-lpcm16": "0.2.0",
+    "yargs": "6.6.0"
+  }
+}
