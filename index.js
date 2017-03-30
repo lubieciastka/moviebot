@@ -40,11 +40,9 @@ app.post('/webhook', function(req, res) {
         // Iterate over each messaging event
         entry.messaging.forEach(function(event) {
             if (event.message) {
-                var messageText = event.message.text;
-
-			   	if (messageText) {
-			    	buildResponse(messageText, event.sender.id);
-				}
+                moviebot.buildResponse(event.message.text, event);
+            } else if (event.postback.payload === 'GET_STARTED_PAYLOAD'){
+            	moviebot.buildStartResponse(event);
             } else {
                 console.log("Webhook received unknown event: ", event);
             }
@@ -53,110 +51,143 @@ app.post('/webhook', function(req, res) {
     res.sendStatus(200);
 });
 
-function buildResponse (messageText, senderID) {
-	var temp = messageText.split(' ');
-	
-	getFilmwebMessages(checkGenre(temp[0].toLowerCase()), temp[1], senderID);
-
-	function checkGenre (messageText) {
-		var genres = {
-			"animacja" : 2,
-	        "dokumentalny": 5,
-	        "dramat" : 6,
-	        "familijny": 8,
-	        "fantasy": 9,
-	        "horror": 12,
-	        "komedia": 13,
-	        "kryminał": 15,
-	        "melodramat": 16,
-	        "obyczajowy": 19,
-	        "przygodowy": 20,
-	        "sensacyjny": 22,
-	        "thriller": 24,
-	        "western": 25,
-	        "akcja" : 28
+var moviebot = {
+	buildResponse : function (messageText, senderID) {
+		if (!messageText) {
+			return;
 		}
-		return genres[messageText];
-	}
-}
 
-function getFilmwebMessages(genreIds, year, recipientId) {
-    url = 'http://www.filmweb.pl/search/film?&q=&genreIds='+ genreIds + '&startYear='+ year + '&endYear=' + year + '&sort=COUNT&sortAscending=false';
-    
-    request(url, function(error, response, html) {
-        if (error) {
-            return {}
-        }
+		const temp = messageText.split(' ');
+	
+		getFilmwebMessages(checkGenre(temp[0].toLowerCase()), temp[1], event.sender.id);
 
-        var messages = [];
-        var $ = cheerio.load(html);
-
-        $('.sep-hr.resultsList').filter(function() {
-            $(this).children().each(function(i, elem) {
-                if (i > 10) {
-                    return;
-                }
-                messages.push({
-                    title: $(elem).find('.filmTitle').text().substring(0, 70),
-                    subtitle: $(elem).find('.filmPlot p').text().substring(0, 70),
-                    item_url: $(elem).find('.entityTitle a').attr('src'),
-                    image_url: $(elem).find('.entityPoster img').attr('src'),
-                    buttons: [{
-			            type: "web_url",
-			            url: "http://www.filmweb.pl/" + $(elem).find('.gwt-filmPage').attr('href'),
-			            title: "Otworz na filmweb'ie"
-			        }, 
-			        {
-			            type: "web_url",
-			            url: "http://www.filmweb.pl/" + $(elem).find('.gwt-filmPage').attr('href'),
-			            title: "Trailer"
-			        },
-			        {
-			            type: "postback",
-			            title: "Oznacz jako obejrzane",
-			            payload: "Payload for first bubble",
-			        }]
-                });
-            });
-        });
-
-        var messageData = {
+		function checkGenre (messageText) {
+			const genres = {
+				"animacja" : 2,
+		        "dokumentalny": 5,
+		        "dramat" : 6,
+		        "familijny": 8,
+		        "fantasy": 9,
+		        "horror": 12,
+		        "komedia": 13,
+		        "kryminał": 15,
+		        "melodramat": 16,
+		        "obyczajowy": 19,
+		        "przygodowy": 20,
+		        "sensacyjny": 22,
+		        "thriller": 24,
+		        "western": 25,
+		        "akcja" : 28
+			}
+			return genres[messageText];
+		}
+	},
+	buildStartResponse: function (event) {
+		const messageData = {
             recipient: {
-                id: recipientId
+                id: event.sender.id
             },
             message: {
-                attachment: {
+        		attachment: {
                     type: "template",
                     payload: {
-                        template_type: "generic",
-                        elements: messages
+                        template_type: "button",
+                        text: "Hej 😀 Jestem MovieBot 🎥📹 Pomogę Ci wybrać film na wieczór :) Wybierz jedną z opcji 👇",
+	                    buttons: [
+		                    {
+					            type: "web_url",
+					            url: "http://www.filmweb.pl/",
+					            title: "Otworz na filmweb'ie"
+					        }, 
+					        {
+					            type: "postback",
+					            title: "Oznacz jako obejrzane",
+					            payload: "RANDOM",
+					        }
+				        ]
                     }
                 }
             }
         };
 
-        callSendAPI(messageData);
-    });
-}
+        moviebot.callSendAPI(messageData);
+	},
+	getFilmwebMessages: function (genreIds, year, recipientId) {
+		const url = 'http://www.filmweb.pl/search/film?&q=&genreIds='+ genreIds + '&startYear='+ year + '&endYear=' + year + '&sort=COUNT&sortAscending=false';
+    	
+	    request(url, function(error, response, html) {
+	        if (error) {
+	            return {};
+	        }
 
-function callSendAPI(messageData) {
-	console.log(messageData);
-    request({
-        uri: 'https://graph.facebook.com/v2.6/me/messages',
-        qs: {
-            access_token: process.env.PAGE_ACCESS_TOKEN
-        },
-        method: 'POST',
-        json: messageData
+	        var messages = [];
+	        var $ = cheerio.load(html);
 
-    }, function(error, response, body) {
-        if (!error && response.statusCode == 200) {
-            // var recipientId = body.recipient_id;
-            // var messageId = body.message_id;
-        } else {
-            console.error("Unable to send message.");
-            console.error(response);
-            console.error(error);
-        }
-    });
+	        $('.sep-hr.resultsList').filter(function() {
+	            $(this).children().each(function(i, elem) {
+	                if (i > 10) {
+	                    return;
+	                }
+	                messages.push({
+	                    title: $(elem).find('.filmTitle').text().substring(0, 70),
+	                    subtitle: $(elem).find('.filmPlot p').text().substring(0, 70),
+	                    item_url: $(elem).find('.entityTitle a').attr('src'),
+	                    image_url: $(elem).find('.entityPoster img').attr('src'),
+	                    buttons: [{
+				            type: "web_url",
+				            url: "http://www.filmweb.pl/" + $(elem).find('.gwt-filmPage').attr('href'),
+				            title: "Otworz na filmweb'ie"
+				        }, 
+				        {
+				            type: "web_url",
+				            url: "http://www.filmweb.pl/" + $(elem).find('.gwt-filmPage').attr('href'),
+				            title: "Trailer"
+				        },
+				        {
+				            type: "postback",
+				            title: "Oznacz jako obejrzane",
+				            payload: "Payload for first bubble",
+				        }]
+	                });
+	            });
+	        });
+
+	        var messageData = {
+	            recipient: {
+	                id: recipientId
+	            },
+	            message: {
+	                attachment: {
+	                    type: "template",
+	                    payload: {
+	                        template_type: "generic",
+	                        elements: messages
+	                    }
+	                }
+	            }
+	        };
+
+	        moviebot.callSendAPI(messageData);
+	    });
+	},
+	callSendAPI: function (messageData) {
+	    request({
+	        uri: 'https://graph.facebook.com/v2.6/me/messages',
+	        qs: {
+	            access_token: process.env.PAGE_ACCESS_TOKEN
+	        },
+	        method: 'POST',
+	        json: messageData
+
+	    }, function(error, response, body) {
+	        if (!error && response.statusCode == 200) {
+	            // var recipientId = body.recipient_id;
+	            // var messageId = body.message_id;
+	        } else {
+	            console.error("Unable to send message.");
+	            console.error(response);
+	            console.error(error);
+	        }
+	    });
+	}
 }
